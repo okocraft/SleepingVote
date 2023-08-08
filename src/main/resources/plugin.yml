@@ -1,0 +1,9 @@
+name: SleepingVote
+version: '${projectVersion}'
+main: net.okocraft.sleepingvote.SleepingVotePlugin
+api-version: "1.20"
+folia-supported: true
+
+commands:
+  sleepingvote:
+    aliases: ["sv"]
