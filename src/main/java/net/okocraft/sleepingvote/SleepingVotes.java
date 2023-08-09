@@ -1,13 +1,18 @@
 package net.okocraft.sleepingvote;
 
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.world.TimeSkipEvent;
@@ -18,11 +23,12 @@ public class SleepingVotes {
 
     private final Map<UUID, Boolean> voteState = new ConcurrentHashMap<>();
     private final UUID worldUid;
-    private final AtomicInteger votedTime = new AtomicInteger(0);
+    private final AtomicInteger votedTime = new AtomicInteger(-1);
+    private final BossBar timeLeftBar;
 
     private SleepingVotes(World world) {
         this.worldUid = world.getUID();
-        currentVote.put(world.getUID(), this);
+        this.timeLeftBar = Bukkit.createBossBar("", BarColor.BLUE, BarStyle.SOLID);
     }
 
     public static SleepingVotes getOrCreateSleepingVotes(World world) {
@@ -40,17 +46,49 @@ public class SleepingVotes {
                 || (12542 <= time && time < 23460);
     }
 
+    public static void onPluginDisabled() {
+        for (World world : Bukkit.getWorlds()) {
+            if (isSleepingVoteStarted(world)) {
+                getOrCreateSleepingVotes(world).endVote();
+            }
+        }
+    }
+
     public World getWorld() {
         return Bukkit.getWorld(worldUid);
     }
 
     public boolean countTimeOne(int expire) {
+        World world = getWorld();
+        if (world == null) {
+            endVote();
+            return false;
+        }
+
         int time = votedTime.addAndGet(1);
+
+        updateTimeLeftBar(world, time, expire);
+
+        if (voteState.size() == world.getPlayerCount() && tally()) {
+            skipNight();
+            return true;
+        }
+
         if (time >= expire && tally()) {
             skipNight();
             return true;
         }
         return false;
+    }
+
+    private synchronized void updateTimeLeftBar(World world, int time, int expire) {
+        Set<Player> worldPlayers = new HashSet<>(world.getPlayers());
+        Set<Player> barPlayers = new HashSet<>(timeLeftBar.getPlayers());
+        barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(timeLeftBar::removePlayer);
+        worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(timeLeftBar::addPlayer);
+
+        timeLeftBar.setTitle("night skip? /sv skip or /sv noskip (" + (expire - time) + "/" + expire + "s)");
+        timeLeftBar.setProgress(1 - time / (double) expire);
     }
 
     public void vote(Player voter, boolean skip) {
@@ -63,10 +101,6 @@ public class SleepingVotes {
         if (world.getPlayers().contains(voter)) {
             voteState.put(voter.getUniqueId(), skip);
         }
-
-        if (voteState.size() == world.getPlayerCount() && tally()) {
-            skipNight();
-        }
     }
 
     public void cancelVote(Player player) {
@@ -77,10 +111,6 @@ public class SleepingVotes {
         }
 
         voteState.remove(player.getUniqueId());
-
-        if (voteState.size() == world.getPlayerCount() && tally()) {
-            skipNight();
-        }
     }
 
     private void skipNight() {
@@ -91,20 +121,9 @@ public class SleepingVotes {
             return;
         }
 
-        Optional<Player> sleeperOptional = world.getPlayers().stream().filter(LivingEntity::isSleeping).findAny();
-        if (sleeperOptional.isEmpty()) {
-            if (new TimeSkipEvent(world, TimeSkipEvent.SkipReason.NIGHT_SKIP, 24000 - world.getTime()).callEvent()) {
-                if (world.isThundering()) {
-                    world.setThundering(false);
-                }
-                if (world.hasStorm()) {
-                    world.setStorm(false);
-                }
-                world.setTime(0);
-            }
-        } else {
-            Player sleeper = sleeperOptional.get();
-            SleepingVotePlugin plugin = SleepingVotePlugin.getPlugin(SleepingVotePlugin.class);
+        SleepingVotePlugin plugin = SleepingVotePlugin.getPlugin(SleepingVotePlugin.class);
+
+        world.getPlayers().stream().filter(LivingEntity::isSleeping).findAny().ifPresent(sleeper -> {
             Map<Player, Boolean> ignoreState = new ConcurrentHashMap<>();
             for (Player p : world.getPlayers()) {
                 p.getScheduler().run(plugin, t -> {
@@ -120,11 +139,28 @@ public class SleepingVotes {
                         plugin,
                         () -> p.setSleepingIgnored(ignoreState.getOrDefault(p, false)),
                         null,
-                        40L
+                        110L
                 );
             }
-        }
+        });
 
+        Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> {
+            if (canSleep(world)) {
+                setTimeToDayWithAPI(world);
+            }
+        }, 110L);
+    }
+
+    private void setTimeToDayWithAPI(World world) {
+        if (new TimeSkipEvent(world, TimeSkipEvent.SkipReason.NIGHT_SKIP, 24000 - world.getTime()).callEvent()) {
+            if (world.isThundering()) {
+                world.setThundering(false);
+            }
+            if (world.hasStorm()) {
+                world.setStorm(false);
+            }
+            world.setTime(0);
+        }
     }
 
     public Boolean getVoteState(Player voter) {
@@ -144,6 +180,9 @@ public class SleepingVotes {
     public void endVote() {
         voteState.clear();
         votedTime.set(Integer.MIN_VALUE);
+        synchronized (timeLeftBar) {
+            timeLeftBar.removeAll();
+        }
         currentVote.remove(worldUid);
     }
 }

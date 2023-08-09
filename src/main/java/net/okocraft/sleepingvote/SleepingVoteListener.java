@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerBedEnterEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 public class SleepingVoteListener implements Listener {
 
@@ -22,16 +23,24 @@ public class SleepingVoteListener implements Listener {
                 SleepingVotes vote = SleepingVotes.getOrCreateSleepingVotes(w);
 
                 if (!SleepingVotes.canSleep(w)) {
+                    w.getPlayers().forEach(p -> p.getScheduler().run(plugin, t2 -> p.sendMessage(MessageKeys.MORNING_CAME), null));
                     vote.endVote();
                     continue;
                 }
 
-                // tally up this vote after 180 seconds.
-                if (vote.countTimeOne(180)) {
+                // tally up this vote after 30 seconds.
+                if (vote.countTimeOne(30)) {
                     w.getPlayers().forEach(p -> p.getScheduler().run(plugin, t2 -> p.sendMessage(MessageKeys.MORNING_CAME), null));
                 }
             }
         }, 1, 20);
+    }
+
+    @EventHandler
+    private void onPlayerJoin(PlayerJoinEvent event) {
+        if (SleepingVotes.isSleepingVoteStarted(event.getPlayer().getWorld())) {
+            event.getPlayer().sendActionBar(MessageKeys.VOTE_TO_SKIP_NIGHT);
+        }
     }
 
     @EventHandler
@@ -48,8 +57,12 @@ public class SleepingVoteListener implements Listener {
 
     @EventHandler
     private void onSleeping(PlayerBedEnterEvent event) {
+        if (event.getBedEnterResult() != PlayerBedEnterEvent.BedEnterResult.OK) {
+            return;
+        }
+
         Player player = event.getPlayer();
-        if (SleepingVotes.isSleepingVoteStarted(player.getWorld())) {
+        if (!SleepingVotes.isSleepingVoteStarted(player.getWorld())) {
             SleepingVotes vote = SleepingVotes.getOrCreateSleepingVotes(player.getWorld());
             vote.vote(player, true);
             player.getWorld().getPlayers().forEach(p -> p.getScheduler().run(

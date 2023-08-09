@@ -90,6 +90,7 @@ public final class SleepingVotePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        SleepingVotes.onPluginDisabled();
         translationDirectory.unload();
     }
 
