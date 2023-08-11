@@ -79,8 +79,12 @@ public class SleepingVotes {
             return true;
         }
 
-        if (time >= expire && tally()) {
-            skipNight();
+        if (time >= expire) {
+            if (tally()) {
+                skipNight();
+            } else {
+                endVote();
+            }
             return true;
         }
         return false;
