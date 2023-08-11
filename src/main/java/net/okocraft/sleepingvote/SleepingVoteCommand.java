@@ -30,7 +30,7 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
 
         World world = player.getWorld();
 
-        if (!SleepingVotes.canSleep(world)) {
+        if (!SleepingVotes.canSleep(world) || SleepingVotes.isNightSkipping(world)) {
             player.sendMessage(MessageKeys.ITS_NOT_NIGHT);
             return true;
         }

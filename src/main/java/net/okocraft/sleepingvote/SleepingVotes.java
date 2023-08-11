@@ -20,6 +20,7 @@ import org.bukkit.event.world.TimeSkipEvent;
 public class SleepingVotes {
 
     private static final Map<UUID, SleepingVotes> currentVote = new ConcurrentHashMap<>();
+    private static final Map<UUID, Boolean> isNightSkipping = new ConcurrentHashMap<>();
 
     private final Map<UUID, Boolean> voteState = new ConcurrentHashMap<>();
     private final UUID worldUid;
@@ -52,6 +53,10 @@ public class SleepingVotes {
                 getOrCreateSleepingVotes(world).endVote();
             }
         }
+    }
+
+    public static boolean isNightSkipping(World world) {
+        return isNightSkipping.getOrDefault(world.getUID(), false);
     }
 
     public World getWorld() {
@@ -120,6 +125,7 @@ public class SleepingVotes {
         if (world == null) {
             return;
         }
+        isNightSkipping.put(world.getUID(), true);
 
         SleepingVotePlugin plugin = SleepingVotePlugin.getPlugin(SleepingVotePlugin.class);
 
@@ -148,6 +154,7 @@ public class SleepingVotes {
             if (canSleep(world)) {
                 setTimeToDayWithAPI(world);
             }
+            isNightSkipping.remove(world.getUID());
         }, 110L);
     }
 

@@ -17,6 +17,10 @@ public class SleepingVoteListener implements Listener {
         this.plugin = plugin;
         Bukkit.getGlobalRegionScheduler().runAtFixedRate(plugin, t -> {
             for (World w : Bukkit.getWorlds()) {
+                if (SleepingVotes.isNightSkipping(w)) {
+                    continue;
+                }
+
                 if (!SleepingVotes.isSleepingVoteStarted(w)) {
                     continue;
                 }
@@ -29,7 +33,7 @@ public class SleepingVoteListener implements Listener {
                 }
 
                 // tally up this vote after 30 seconds.
-                if (vote.countTimeOne(30)) {
+                if (vote.countTimeOne(50)) {
                     w.getPlayers().forEach(p -> p.getScheduler().run(plugin, t2 -> p.sendMessage(MessageKeys.MORNING_CAME), null));
                 }
             }
@@ -62,6 +66,10 @@ public class SleepingVoteListener implements Listener {
         }
 
         Player player = event.getPlayer();
+        if (SleepingVotes.isNightSkipping(player.getWorld())) {
+            return;
+        }
+
         if (!SleepingVotes.isSleepingVoteStarted(player.getWorld())) {
             SleepingVotes vote = SleepingVotes.getOrCreateSleepingVotes(player.getWorld());
             vote.vote(player, true);
