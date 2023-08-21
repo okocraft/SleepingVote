@@ -193,7 +193,7 @@ public class SleepingVotes {
 
     public boolean tally() {
         Map<Boolean, Long> counting = getVoteStates();
-        return counting.get(true) >= counting.get(false);
+        return counting.get(true) > counting.get(false);
     }
 
     public void endVote() {
