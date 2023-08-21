@@ -66,7 +66,7 @@ public class SleepingVoteListener implements Listener {
         }
 
         Player player = event.getPlayer();
-        if (SleepingVotes.isNightSkipping(player.getWorld())) {
+        if (SleepingVotes.isNightSkipping(player.getWorld()) || SleepingVotes.isVoteEnded(player.getWorld())) {
             return;
         }
 

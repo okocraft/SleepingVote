@@ -27,4 +27,5 @@ public class MessageKeys {
     public static final Function<Long, Component> NOSKIP_PERCENTAGE = count ->
             Component.translatable("noskip-percentage").color(NamedTextColor.AQUA).args(Component.text(count));
     public static final Component UNKNOWN_SUBCOMMAND = Component.translatable("unknown-subcommand").color(NamedTextColor.AQUA);
+    public static final Component VOTE_TONIGHT_ENDED = Component.translatable("vote-tonight-ended").color(NamedTextColor.AQUA);
 }

@@ -21,6 +21,7 @@ public class SleepingVotes {
 
     private static final Map<UUID, SleepingVotes> currentVote = new ConcurrentHashMap<>();
     private static final Map<UUID, Boolean> isNightSkipping = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> previousWorldNightSkip = new ConcurrentHashMap<>();
 
     private final Map<UUID, Boolean> voteState = new ConcurrentHashMap<>();
     private final UUID worldUid;
@@ -38,6 +39,11 @@ public class SleepingVotes {
 
     public static boolean isSleepingVoteStarted(World world) {
         return currentVote.containsKey(world.getUID());
+    }
+
+    public static boolean isVoteEnded(World world) {
+        return previousWorldNightSkip.containsKey(world.getUID())
+                && previousWorldNightSkip.get(world.getUID()) / 24000 >= world.getFullTime() / 24000;
     }
 
     public static boolean canSleep(World world) {
@@ -82,10 +88,11 @@ public class SleepingVotes {
         if (time >= expire) {
             if (tally()) {
                 skipNight();
+                return true;
             } else {
                 endVote();
+                return false;
             }
-            return true;
         }
         return false;
     }
@@ -159,6 +166,7 @@ public class SleepingVotes {
                 setTimeToDayWithAPI(world);
             }
             isNightSkipping.remove(world.getUID());
+            previousWorldNightSkip.put(world.getUID(), world.getTime());
         }, 110L);
     }
 

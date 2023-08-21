@@ -35,6 +35,11 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (SleepingVotes.isVoteEnded(world)) {
+            player.sendMessage(MessageKeys.VOTE_TONIGHT_ENDED);
+            return true;
+        }
+
         // sv skip
         if (args.length == 0 || "skip".startsWith(args[0].toLowerCase())) {
             if (!SleepingVotes.isSleepingVoteStarted(world)) {
