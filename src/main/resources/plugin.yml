@@ -7,3 +7,7 @@ folia-supported: true
 commands:
   sleepingvote:
     aliases: ["sv"]
+
+permissions:
+  sleepingvote.admin:
+    default: op

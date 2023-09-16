@@ -1,6 +1,7 @@
 package net.okocraft.sleepingvote;
 
 import java.io.IOException;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
@@ -21,12 +22,14 @@ import org.jetbrains.annotations.Nullable;
 
 public final class SleepingVotePlugin extends JavaPlugin {
 
+    private final YamlConfiguration configuration = YamlConfiguration.create(getDataFolder().toPath().resolve("config.yml"));
+
     private final Path jarFile;
 
     private final TranslationDirectory translationDirectory;
 
     public SleepingVotePlugin() {
-        this.jarFile = Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().getPath());
+        this.jarFile = getJarPath();
 
         Path pluginDirectory = getDataFolder().toPath();
 
@@ -69,6 +72,30 @@ public final class SleepingVotePlugin extends JavaPlugin {
         return loader;
     }
 
+    public static Path getJarPath() {
+        String path = SleepingVotePlugin.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        Path jarFilePath;
+        try {
+            // for linux.
+            jarFilePath = Paths.get(path);
+        } catch (InvalidPathException e) {
+            // for windows.
+            if (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            jarFilePath = Paths.get(path);
+        }
+        return jarFilePath;
+    }
+
+    public YamlConfiguration getConfiguration() {
+        return this.configuration;
+    }
+
+    public TranslationDirectory getTranslationDirectory() {
+        return this.translationDirectory;
+    }
+
     @Override
     public void onLoad() {
 
@@ -81,6 +108,15 @@ public final class SleepingVotePlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        try {
+            ResourceUtils.copyFromJarIfNotExists(getJarPath(), "config.yml", configuration.getPath());
+            configuration.load();
+        } catch (IOException e) {
+            getLogger().log(Level.SEVERE, "Could not load config.yml", e);
+            getServer().getPluginManager().disablePlugin(this);
+        }
+        SleepingVotes.onPluginEnabled(this);
+
         getServer().getPluginManager().registerEvents(new SleepingVoteListener(this), this);
         PluginCommand command = Objects.requireNonNull(getCommand("sleepingvote"));
         SleepingVoteCommand commandExecutor = new SleepingVoteCommand(this);

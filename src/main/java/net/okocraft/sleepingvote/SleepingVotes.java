@@ -1,5 +1,6 @@
 package net.okocraft.sleepingvote;
 
+import com.github.siroshun09.configapi.api.Configuration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -8,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
@@ -19,18 +21,21 @@ import org.bukkit.event.world.TimeSkipEvent;
 
 public class SleepingVotes {
 
+    private static Configuration config;
+
     private static final Map<UUID, SleepingVotes> currentVote = new ConcurrentHashMap<>();
-    private static final Map<UUID, Boolean> isNightSkipping = new ConcurrentHashMap<>();
+    private static final Set<UUID> isNightSkipping = ConcurrentHashMap.newKeySet();
     private static final Map<UUID, Long> previousWorldNightSkip = new ConcurrentHashMap<>();
+    private static final Map<UUID, Long> previousWorldNightNoSkip = new ConcurrentHashMap<>();
 
     private final Map<UUID, Boolean> voteState = new ConcurrentHashMap<>();
     private final UUID worldUid;
     private final AtomicInteger votedTime = new AtomicInteger(-1);
-    private final BossBar timeLeftBar;
+    private final I18nBossBar timeLeftBar;
 
     private SleepingVotes(World world) {
         this.worldUid = world.getUID();
-        this.timeLeftBar = Bukkit.createBossBar("", BarColor.BLUE, BarStyle.SOLID);
+        this.timeLeftBar = new I18nBossBar(Component.text(""), BarColor.BLUE, BarStyle.SOLID);
     }
 
     public static SleepingVotes getOrCreateSleepingVotes(World world) {
@@ -42,8 +47,15 @@ public class SleepingVotes {
     }
 
     public static boolean isVoteEnded(World world) {
-        return previousWorldNightSkip.containsKey(world.getUID())
-                && previousWorldNightSkip.get(world.getUID()) / 24000 >= world.getFullTime() / 24000;
+        if (isNightSkipping(world)) {
+            return true;
+        }
+        long previousNoSkip = previousWorldNightNoSkip.getOrDefault(world.getUID(), -1L);
+        return previousNoSkip != -1L && previousNoSkip / 24000 >= world.getFullTime() / 24000;
+    }
+
+    public static long getPreviousNightSkip(World world) {
+        return previousWorldNightSkip.getOrDefault(world.getUID(), -1L);
     }
 
     public static boolean canSleep(World world) {
@@ -51,6 +63,10 @@ public class SleepingVotes {
         return world.isThundering()
                 || (world.hasStorm() && 12010 <= time && time < 23992)
                 || (12542 <= time && time < 23460);
+    }
+
+    public static void onPluginEnabled(SleepingVotePlugin plugin) {
+        SleepingVotes.config = plugin.getConfiguration();
     }
 
     public static void onPluginDisabled() {
@@ -62,39 +78,35 @@ public class SleepingVotes {
     }
 
     public static boolean isNightSkipping(World world) {
-        return isNightSkipping.getOrDefault(world.getUID(), false);
+        return isNightSkipping.contains(world.getUID());
     }
 
     public World getWorld() {
         return Bukkit.getWorld(worldUid);
     }
 
-    public boolean countTimeOne(int expire) {
+    public NightSkipState countTimeOne(int expire) {
         World world = getWorld();
         if (world == null) {
             endVote();
-            return false;
+            return NightSkipState.NIGHT_NOT_SKIPPED;
         }
 
         int time = votedTime.addAndGet(1);
 
         updateTimeLeftBar(world, time, expire);
 
-        if (voteState.size() == world.getPlayerCount() && tally()) {
-            skipNight();
-            return true;
-        }
-
-        if (time >= expire) {
+        if (time >= expire || voteState.size() == world.getPlayerCount()) {
             if (tally()) {
                 skipNight();
-                return true;
+                return NightSkipState.NIGHT_SKIPPED;
             } else {
+                previousWorldNightNoSkip.put(world.getUID(), world.getFullTime());
                 endVote();
-                return false;
+                return NightSkipState.NIGHT_NOT_SKIPPED;
             }
         }
-        return false;
+        return NightSkipState.VOTE_CONTINUES;
     }
 
     private synchronized void updateTimeLeftBar(World world, int time, int expire) {
@@ -102,8 +114,11 @@ public class SleepingVotes {
         Set<Player> barPlayers = new HashSet<>(timeLeftBar.getPlayers());
         barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(timeLeftBar::removePlayer);
         worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(timeLeftBar::addPlayer);
-
-        timeLeftBar.setTitle("night skip? /sv skip or /sv noskip (" + (expire - time) + "/" + expire + "s)");
+        timeLeftBar.setTitle(MessageKeys.getSkipBarTitle(
+                expire - time,
+                expire,
+                config.getInteger("no-skip-night-interval", 3))
+        );
         timeLeftBar.setProgress(1 - time / (double) expire);
     }
 
@@ -136,7 +151,7 @@ public class SleepingVotes {
         if (world == null) {
             return;
         }
-        isNightSkipping.put(world.getUID(), true);
+        isNightSkipping.add(world.getUID());
 
         SleepingVotePlugin plugin = SleepingVotePlugin.getPlugin(SleepingVotePlugin.class);
 
@@ -166,7 +181,7 @@ public class SleepingVotes {
                 setTimeToDayWithAPI(world);
             }
             isNightSkipping.remove(world.getUID());
-            previousWorldNightSkip.put(world.getUID(), world.getTime());
+            previousWorldNightSkip.put(world.getUID(), world.getFullTime());
         }, 110L);
     }
 
@@ -193,7 +208,9 @@ public class SleepingVotes {
 
     public boolean tally() {
         Map<Boolean, Long> counting = getVoteStates();
-        return counting.get(true) > counting.get(false);
+        long skipCount = counting.get(true);
+        long noSkipCount = counting.get(false);
+        return (double) skipCount / (skipCount + noSkipCount) > config.getDouble("skip-ratio", 0.5D);
     }
 
     public void endVote() {

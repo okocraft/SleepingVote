@@ -1,4 +1,5 @@
 morning-came: "The morning comes!"
+night-not-skipped: "This night is not skipped!"
 vote-not-started: "Sleeping vote has not started."
 its-not-night: "You cannot use sleeping vote when it's not night."
 vote-cancelled: "Your vote has been cancelled."
@@ -16,3 +17,7 @@ noskip-percentage: "noskip: {0}"
 unknown-subcommand: "Unknown sub-command."
 vote-tonight-ended: "The night skip vote tonight is ended."
 cannot-vote-tonight: "Cannot vote tonight."
+reloaded: "Configuration file is reloaded"
+# {0} = time left in seconds
+# {1} = expire seconds
+skip-time-bar-title: "night skip? /sv skip or /sv noskip ({0}/{1}s) cannot skip {2} days later"

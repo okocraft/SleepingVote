@@ -32,9 +32,12 @@ public class SleepingVoteListener implements Listener {
                     continue;
                 }
 
-                // tally up this vote after 30 seconds.
-                if (vote.countTimeOne(50)) {
+                NightSkipState countOneResult = vote.countTimeOne(plugin.getConfiguration().getInteger("voting-time", 50));
+                // tally up this vote after n seconds.
+                if (countOneResult == NightSkipState.NIGHT_SKIPPED) {
                     w.getPlayers().forEach(p -> p.getScheduler().run(plugin, t2 -> p.sendMessage(MessageKeys.MORNING_CAME), null));
+                } else if (countOneResult == NightSkipState.NIGHT_NOT_SKIPPED) {
+                    w.getPlayers().forEach(p -> p.getScheduler().run(plugin, t2 -> p.sendMessage(MessageKeys.NIGHT_NOT_SKIPPED), null));
                 }
             }
         }, 1, 20);

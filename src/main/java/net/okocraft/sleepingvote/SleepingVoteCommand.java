@@ -1,5 +1,6 @@
 package net.okocraft.sleepingvote;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,13 +31,19 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
 
         World world = player.getWorld();
 
-        if (!SleepingVotes.canSleep(world) || SleepingVotes.isNightSkipping(world)) {
+        if (!SleepingVotes.canSleep(world)) {
             player.sendMessage(MessageKeys.ITS_NOT_NIGHT);
             return true;
         }
 
         if (SleepingVotes.isVoteEnded(world)) {
             player.sendMessage(MessageKeys.VOTE_TONIGHT_ENDED);
+            return true;
+        }
+
+        if (SleepingVotes.getPreviousNightSkip(world) / 24000
+                + plugin.getConfiguration().getInteger("no-skip-night-interval", 3) == world.getFullTime() / 24000) {
+            player.sendMessage(MessageKeys.CANNOT_VOTE_TONIGHT);
             return true;
         }
 
@@ -124,6 +131,19 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(MessageKeys.SKIP_PERCENTAGE.apply(percentage.get(true)));
             player.sendMessage(MessageKeys.NOSKIP_PERCENTAGE.apply(percentage.get(false)));
             return true;
+        }
+
+        if (player.hasPermission("sleepingvote.admin")) {
+            if ("reload".startsWith(args[0].toLowerCase())) {
+                try {
+                    plugin.getConfiguration().reload();
+                    plugin.getTranslationDirectory().load();
+                    player.sendMessage(MessageKeys.RELOADED);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            }
         }
 
         player.sendMessage(MessageKeys.UNKNOWN_SUBCOMMAND);
