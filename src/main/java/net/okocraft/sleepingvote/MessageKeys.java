@@ -31,11 +31,21 @@ public class MessageKeys {
     public static final Component VOTE_TONIGHT_ENDED = Component.translatable("vote-tonight-ended").color(NamedTextColor.AQUA);
     public static final Component CANNOT_VOTE_TONIGHT = Component.translatable("cannot-vote-tonight").color(NamedTextColor.AQUA);
     public static final Component RELOADED = Component.translatable("reloaded").color(NamedTextColor.AQUA);
+    public static final Function<Integer, Component> NEXT_NO_SKIP_NIGHT = noSkipDayInterval ->
+            Component.translatable("next-no-skip-night").color(NamedTextColor.AQUA).args(Component.text(noSkipDayInterval));
+
     public static Component getSkipBarTitle(int timeLeft, int expire, int noSkipDayInterval) {
-        return Component.translatable("skip-time-bar-title").color(NamedTextColor.AQUA).args(
+        return Component.translatable("skip-time-bar-title-with-interval").color(NamedTextColor.AQUA).args(
                 Component.text(timeLeft).color(NamedTextColor.AQUA),
                 Component.text(expire).color(NamedTextColor.AQUA),
                 Component.text(noSkipDayInterval).color(NamedTextColor.AQUA)
+        );
+    }
+
+    public static Component getSkipBarTitle(int timeLeft, int expire) {
+        return Component.translatable("skip-time-bar-title").color(NamedTextColor.AQUA).args(
+                Component.text(timeLeft).color(NamedTextColor.AQUA),
+                Component.text(expire).color(NamedTextColor.AQUA)
         );
     }
 

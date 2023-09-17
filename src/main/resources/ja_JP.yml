@@ -12,12 +12,14 @@ you-already-voted-noskip: "すでにスキップしないに投票していま�
 you-have-not-voted-yet: "まだ投票していません。"
 you-do-not-vote-now: "あなたは現在投票していません。"
 your-vote-is: "あなたの投票: {0}."
-skip-percentage: " スキップする : {0}"
+skip-percentage: "スキップする: {0}"
 noskip-percentage: "スキップしない: {0}"
 unknown-subcommand: "未知のサブコマンドです。"
 vote-tonight-ended: "今夜の投票は終了しました。"
 cannot-vote-tonight: "今夜は投票できません。"
-reloaded: "設定ファイルが採用見込みされました。"
-# {0} = time left in seconds
+reloaded: "設定ファイルが再読み込みされました。"
+# {0} = remaining time in seconds
 # {1} = expire seconds
-skip-time-bar-title: "夜スキップ投票中 /sv skip or /sv noskip ({0}/{1}秒) {2}日後スキップ不可"
+skip-time-bar-title: "夜スキップ投票中 /sv skip or /sv noskip ({0}/{1}秒)"
+skip-time-bar-title-with-interval: "夜スキップ投票中 /sv skip or /sv noskip ({0}/{1}秒) {2}日後スキップ不可"
+next-no-skip-night: "次のスキップ不可能な夜 : {0}日後"

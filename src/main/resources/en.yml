@@ -12,12 +12,14 @@ you-already-voted-noskip: "You have already voted to noskip."
 you-have-not-voted-yet: "You have not voted yet."
 you-do-not-vote-now: "You do not vote now."
 your-vote-is: "You voted to {0}."
-skip-percentage: " skip : {0}"
+skip-percentage: "skip: {0}"
 noskip-percentage: "noskip: {0}"
 unknown-subcommand: "Unknown sub-command."
 vote-tonight-ended: "The night skip vote tonight is ended."
 cannot-vote-tonight: "Cannot vote tonight."
 reloaded: "Configuration file is reloaded"
-# {0} = time left in seconds
+# {0} = remaining time in seconds
 # {1} = expire seconds
-skip-time-bar-title: "night skip? /sv skip or /sv noskip ({0}/{1}s) cannot skip {2} days later"
+skip-time-bar-title: "night skip? /sv skip or /sv noskip ({0}/{1}s)"
+skip-time-bar-title-with-interval: "night skip? /sv skip or /sv noskip ({0}/{1}s) cannot skip {2} days later"
+next-no-skip-night: "next unskippable night : {0} days later"

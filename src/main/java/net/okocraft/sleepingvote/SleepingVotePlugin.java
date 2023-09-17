@@ -28,6 +28,8 @@ public final class SleepingVotePlugin extends JavaPlugin {
 
     private final TranslationDirectory translationDirectory;
 
+    private SleepingVoteListener eventListener;
+
     public SleepingVotePlugin() {
         this.jarFile = getJarPath();
 
@@ -117,7 +119,8 @@ public final class SleepingVotePlugin extends JavaPlugin {
         }
         SleepingVotes.onPluginEnabled(this);
 
-        getServer().getPluginManager().registerEvents(new SleepingVoteListener(this), this);
+        eventListener = new SleepingVoteListener(this);
+        getServer().getPluginManager().registerEvents(eventListener, this);
         PluginCommand command = Objects.requireNonNull(getCommand("sleepingvote"));
         SleepingVoteCommand commandExecutor = new SleepingVoteCommand(this);
         command.setExecutor(commandExecutor);
@@ -126,6 +129,9 @@ public final class SleepingVotePlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (eventListener != null) {
+            eventListener.onPluginDisable();
+        }
         SleepingVotes.onPluginDisabled();
         translationDirectory.unload();
     }

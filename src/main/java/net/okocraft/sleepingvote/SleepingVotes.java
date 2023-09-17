@@ -6,7 +6,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
@@ -14,7 +16,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
-import org.bukkit.boss.BossBar;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.world.TimeSkipEvent;
@@ -23,39 +24,21 @@ public class SleepingVotes {
 
     private static Configuration config;
 
-    private static final Map<UUID, SleepingVotes> currentVote = new ConcurrentHashMap<>();
-    private static final Set<UUID> isNightSkipping = ConcurrentHashMap.newKeySet();
-    private static final Map<UUID, Long> previousWorldNightSkip = new ConcurrentHashMap<>();
-    private static final Map<UUID, Long> previousWorldNightNoSkip = new ConcurrentHashMap<>();
+    private static final Map<UUID, SleepingVotes> cache = new ConcurrentHashMap<>();
 
     private final Map<UUID, Boolean> voteState = new ConcurrentHashMap<>();
     private final UUID worldUid;
-    private final AtomicInteger votedTime = new AtomicInteger(-1);
-    private final I18nBossBar timeLeftBar;
+    private final AtomicInteger remainingTime = new AtomicInteger(-1);
+    private final I18nBossBar remainingTimeBar;
+    private final AtomicBoolean nightSkipping = new AtomicBoolean(false);
+    private final AtomicLong previousNoSkip = new AtomicLong(-1);
 
-    private SleepingVotes(World world) {
-        this.worldUid = world.getUID();
-        this.timeLeftBar = new I18nBossBar(Component.text(""), BarColor.BLUE, BarStyle.SOLID);
+    public static void onPluginEnabled(SleepingVotePlugin plugin) {
+        SleepingVotes.config = plugin.getConfiguration();
     }
 
-    public static SleepingVotes getOrCreateSleepingVotes(World world) {
-        return currentVote.computeIfAbsent(world.getUID(), u -> new SleepingVotes(world));
-    }
-
-    public static boolean isSleepingVoteStarted(World world) {
-        return currentVote.containsKey(world.getUID());
-    }
-
-    public static boolean isVoteEnded(World world) {
-        if (isNightSkipping(world)) {
-            return true;
-        }
-        long previousNoSkip = previousWorldNightNoSkip.getOrDefault(world.getUID(), -1L);
-        return previousNoSkip != -1L && previousNoSkip / 24000 >= world.getFullTime() / 24000;
-    }
-
-    public static long getPreviousNightSkip(World world) {
-        return previousWorldNightSkip.getOrDefault(world.getUID(), -1L);
+    public static void onPluginDisabled() {
+        cache.values().forEach(v -> v.remainingTimeBar.removeAll());
     }
 
     public static boolean canSleep(World world) {
@@ -65,93 +48,194 @@ public class SleepingVotes {
                 || (12542 <= time && time < 23460);
     }
 
-    public static void onPluginEnabled(SleepingVotePlugin plugin) {
-        SleepingVotes.config = plugin.getConfiguration();
+    private SleepingVotes(World world) {
+        this.worldUid = world.getUID();
+        this.remainingTimeBar = new I18nBossBar(Component.text(""), BarColor.BLUE, BarStyle.SOLID);
     }
 
-    public static void onPluginDisabled() {
-        for (World world : Bukkit.getWorlds()) {
-            if (isSleepingVoteStarted(world)) {
-                getOrCreateSleepingVotes(world).endVote();
-            }
+    public static SleepingVotes getOrCreateSleepingVotes(World world) {
+        if (!Bukkit.getWorlds().contains(world)) {
+            throw new IllegalStateException("This world is not loaded now.");
         }
+        return cache.computeIfAbsent(world.getUID(), u -> new SleepingVotes(world));
     }
 
-    public static boolean isNightSkipping(World world) {
-        return isNightSkipping.contains(world.getUID());
+    public boolean isNightSkipping() {
+        return nightSkipping.get();
+    }
+
+    public boolean isVoteStarted() {
+        if (remainingTime.get() < 0) {
+            return false;
+        }
+
+        if (nightSkipping.get()) {
+            return false;
+        }
+
+        World world = getWorld();
+        if (world == null) {
+            return false;
+        }
+
+        if (!canSleep(world)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public boolean isVoteEndedTonight() {
+        if (isVoteStarted()) {
+            return false;
+        }
+        long previousNoSkip = this.previousNoSkip.get();
+        return previousNoSkip != -1L && previousNoSkip / 24000 >= getWorld().getFullTime() / 24000;
+    }
+
+    public boolean canStartVote() {
+        if (remainingTime.get() >= 0) {
+            return false;
+        }
+
+        if (nightSkipping.get()) {
+            return false;
+        }
+
+        World world = getWorld();
+        if (world == null) {
+            return false;
+        }
+
+        if (!canSleep(world)) {
+            return false;
+        }
+
+        long previousNoSkip = this.previousNoSkip.get();
+        if (previousNoSkip != -1L && previousNoSkip / 24000 >= getWorld().getFullTime() / 24000) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static int getConfigVotingExpire() {
+        return config.getInteger("voting-time", 50);
+    }
+
+    public boolean startVote() {
+        if (canStartVote()) {
+            remainingTime.set(getConfigVotingExpire());
+            voteState.clear();
+            return true;
+        }
+        return false;
+    }
+
+    public int getUnskippableNightInterval() {
+        World world = getWorld();
+        if (world == null) {
+            return -1;
+        }
+        int interval = config.getInteger("no-skip-night-interval", 3);
+        if (interval <= -1) {
+            return -1;
+        }
+        return interval - ((int) world.getFullTime() / 24000) % (interval + 1);
     }
 
     public World getWorld() {
         return Bukkit.getWorld(worldUid);
     }
 
-    public NightSkipState countTimeOne(int expire) {
-        World world = getWorld();
-        if (world == null) {
-            endVote();
-            return NightSkipState.NIGHT_NOT_SKIPPED;
-        }
-
-        int time = votedTime.addAndGet(1);
-
-        updateTimeLeftBar(world, time, expire);
-
-        if (time >= expire || voteState.size() == world.getPlayerCount()) {
-            if (tally()) {
-                skipNight();
-                return NightSkipState.NIGHT_SKIPPED;
-            } else {
-                previousWorldNightNoSkip.put(world.getUID(), world.getFullTime());
-                endVote();
-                return NightSkipState.NIGHT_NOT_SKIPPED;
-            }
-        }
-        return NightSkipState.VOTE_CONTINUES;
-    }
-
-    private synchronized void updateTimeLeftBar(World world, int time, int expire) {
-        Set<Player> worldPlayers = new HashSet<>(world.getPlayers());
-        Set<Player> barPlayers = new HashSet<>(timeLeftBar.getPlayers());
-        barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(timeLeftBar::removePlayer);
-        worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(timeLeftBar::addPlayer);
-        timeLeftBar.setTitle(MessageKeys.getSkipBarTitle(
-                expire - time,
-                expire,
-                config.getInteger("no-skip-night-interval", 3))
-        );
-        timeLeftBar.setProgress(1 - time / (double) expire);
-    }
-
     public void vote(Player voter, boolean skip) {
-        World world = getWorld();
-        if (world == null) {
-            endVote();
-            return;
-        }
-
-        if (world.getPlayers().contains(voter)) {
+        if (isVoteStarted() && getWorld().getPlayers().contains(voter)) {
             voteState.put(voter.getUniqueId(), skip);
         }
     }
 
     public void cancelVote(Player player) {
+        if (isVoteStarted()) {
+            voteState.remove(player.getUniqueId());
+        }
+    }
+
+    public Boolean getVoteState(Player voter) {
+        return isVoteStarted() ? voteState.get(voter.getUniqueId()) : null;
+    }
+
+    public Map<Boolean, Long> getVoteStates() {
+        if (!isVoteStarted()) {
+            return Map.of(true, 0L, false, 0L);
+        }
+        return voteState.entrySet().stream()
+                .collect(Collectors.partitioningBy(Map.Entry::getValue, Collectors.counting()));
+    }
+
+    public boolean tally() {
+        Map<Boolean, Long> counting = getVoteStates();
+        long skipCount = counting.get(true);
+        long noSkipCount = counting.get(false);
+        if (skipCount == 0 && noSkipCount == 0) {
+            return false;
+        }
+        return (double) skipCount / (skipCount + noSkipCount) > config.getDouble("skip-ratio", 0.5D);
+    }
+
+    public SkipState countTimeOne() {
         World world = getWorld();
-        if (world == null) {
-            endVote();
+        if (!isVoteStarted()) {
+            return SkipState.NIGHT_NOT_SKIPPED;
+        }
+
+        int currentRemainingTime;
+        if (voteState.size() == world.getPlayerCount()) {
+            currentRemainingTime = -1;
+            remainingTime.set(-1);
+        } else {
+            currentRemainingTime = remainingTime.addAndGet(-1);
+        }
+
+        updateTimeLeftBar(world, currentRemainingTime);
+
+        if (currentRemainingTime < 0) {
+            if (tally()) {
+                skipNight();
+                return SkipState.NIGHT_SKIPPED;
+            } else {
+                previousNoSkip.set(world.getFullTime());
+                return SkipState.NIGHT_NOT_SKIPPED;
+            }
+        }
+        return SkipState.VOTE_CONTINUES;
+    }
+
+    private synchronized void updateTimeLeftBar(World world, int remainingTime) {
+        if (remainingTime < 0) {
+            remainingTimeBar.removeAll();
             return;
         }
 
-        voteState.remove(player.getUniqueId());
+        int expire = getConfigVotingExpire();
+        Set<Player> worldPlayers = new HashSet<>(world.getPlayers());
+        Set<Player> barPlayers = new HashSet<>(remainingTimeBar.getPlayers());
+        barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(remainingTimeBar::removePlayer);
+        worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(remainingTimeBar::addPlayer);
+        int interval = getUnskippableNightInterval();
+        if (interval <= 0) {
+            remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire));
+        } else {
+            remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire, interval));
+        }
+        remainingTimeBar.setProgress(remainingTime / (double) expire);
     }
 
     private void skipNight() {
-        endVote();
-
         World world = getWorld();
         if (world == null) {
             return;
         }
-        isNightSkipping.add(world.getUID());
+        nightSkipping.set(true);
 
         SleepingVotePlugin plugin = SleepingVotePlugin.getPlugin(SleepingVotePlugin.class);
 
@@ -177,48 +261,20 @@ public class SleepingVotes {
         });
 
         Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> {
-            if (canSleep(world)) {
-                setTimeToDayWithAPI(world);
+            if (canSleep(world) && new TimeSkipEvent(
+                    world,
+                    TimeSkipEvent.SkipReason.NIGHT_SKIP,
+                    24000 - world.getTime()
+            ).callEvent()) {
+                if (world.isThundering()) {
+                    world.setThundering(false);
+                }
+                if (world.hasStorm()) {
+                    world.setStorm(false);
+                }
+                world.setTime(0);
             }
-            isNightSkipping.remove(world.getUID());
-            previousWorldNightSkip.put(world.getUID(), world.getFullTime());
+            nightSkipping.set(false);
         }, 110L);
-    }
-
-    private void setTimeToDayWithAPI(World world) {
-        if (new TimeSkipEvent(world, TimeSkipEvent.SkipReason.NIGHT_SKIP, 24000 - world.getTime()).callEvent()) {
-            if (world.isThundering()) {
-                world.setThundering(false);
-            }
-            if (world.hasStorm()) {
-                world.setStorm(false);
-            }
-            world.setTime(0);
-        }
-    }
-
-    public Boolean getVoteState(Player voter) {
-        return voteState.get(voter.getUniqueId());
-    }
-
-    public Map<Boolean, Long> getVoteStates() {
-        return voteState.entrySet().stream()
-                .collect(Collectors.partitioningBy(Map.Entry::getValue, Collectors.counting()));
-    }
-
-    public boolean tally() {
-        Map<Boolean, Long> counting = getVoteStates();
-        long skipCount = counting.get(true);
-        long noSkipCount = counting.get(false);
-        return (double) skipCount / (skipCount + noSkipCount) > config.getDouble("skip-ratio", 0.5D);
-    }
-
-    public void endVote() {
-        voteState.clear();
-        votedTime.set(Integer.MIN_VALUE);
-        synchronized (timeLeftBar) {
-            timeLeftBar.removeAll();
-        }
-        currentVote.remove(worldUid);
     }
 }

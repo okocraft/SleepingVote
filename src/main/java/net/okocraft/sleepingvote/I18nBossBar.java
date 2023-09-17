@@ -15,7 +15,7 @@ import org.bukkit.entity.Player;
 
 public class I18nBossBar {
 
-    private Map<Locale, BossBar> languagedBossBar = new ConcurrentHashMap<>();
+    private final Map<Locale, BossBar> languageBossBar = new ConcurrentHashMap<>();
 
     private Component title;
     private BarColor color;
@@ -28,11 +28,11 @@ public class I18nBossBar {
     }
 
     public void removePlayer(Player player) {
-        languagedBossBar.values().forEach(b -> b.removePlayer(player));
+        languageBossBar.values().forEach(b -> b.removePlayer(player));
     }
 
     public void addPlayer(Player player) {
-        languagedBossBar.computeIfAbsent(player.locale(), l -> Bukkit.createBossBar(
+        languageBossBar.computeIfAbsent(player.locale(), l -> Bukkit.createBossBar(
                 LegacyComponentSerializer.legacySection().serialize(GlobalTranslator.render(title, player.locale())),
                 color,
                 style
@@ -40,21 +40,22 @@ public class I18nBossBar {
     }
 
     public void setTitle(Component title) {
-        languagedBossBar.forEach((l, b) -> b.setTitle(
+        this.title = title;
+        languageBossBar.forEach((l, b) -> b.setTitle(
                 LegacyComponentSerializer.legacySection().serialize(GlobalTranslator.render(title, l))
         ));
     }
 
     public void setProgress(double progress) {
-        languagedBossBar.values().forEach(b -> b.setProgress(progress));
+        languageBossBar.values().forEach(b -> b.setProgress(progress));
     }
 
     public void removeAll() {
-        languagedBossBar.values().forEach(BossBar::removeAll);
-        languagedBossBar.clear();
+        languageBossBar.values().forEach(BossBar::removeAll);
+        languageBossBar.clear();
     }
 
     public List<Player> getPlayers() {
-        return languagedBossBar.values().stream().flatMap(b -> b.getPlayers().stream()).toList();
+        return languageBossBar.values().stream().flatMap(b -> b.getPlayers().stream()).toList();
     }
 }
