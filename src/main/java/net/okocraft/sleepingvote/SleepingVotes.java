@@ -168,12 +168,16 @@ public class SleepingVotes {
         if (!isVoteStarted()) {
             return Map.of(true, 0L, false, 0L);
         }
+        return getVoteStates0();
+    }
+
+    private Map<Boolean, Long> getVoteStates0() {
         return voteState.entrySet().stream()
                 .collect(Collectors.partitioningBy(Map.Entry::getValue, Collectors.counting()));
     }
 
     public boolean tally() {
-        Map<Boolean, Long> counting = getVoteStates();
+        Map<Boolean, Long> counting = getVoteStates0();
         long skipCount = counting.get(true);
         long noSkipCount = counting.get(false);
         if (skipCount == 0 && noSkipCount == 0) {
