@@ -82,6 +82,10 @@ public class SleepingVotes {
             return false;
         }
 
+        if (getUnskippableNightInterval() == 0) {
+            return false;
+        }
+
         return true;
     }
 
@@ -108,6 +112,10 @@ public class SleepingVotes {
         }
 
         if (!canSleep(world)) {
+            return false;
+        }
+
+        if (getUnskippableNightInterval() == 0) {
             return false;
         }
 
@@ -200,7 +208,7 @@ public class SleepingVotes {
             currentRemainingTime = remainingTime.addAndGet(-1);
         }
 
-        updateTimeLeftBar(world, currentRemainingTime);
+        updateRemainingTimeBar(world, currentRemainingTime);
 
         if (currentRemainingTime < 0) {
             if (tally()) {
@@ -214,24 +222,39 @@ public class SleepingVotes {
         return SkipState.VOTE_CONTINUES;
     }
 
-    private synchronized void updateTimeLeftBar(World world, int remainingTime) {
-        if (remainingTime < 0) {
-            remainingTimeBar.removeAll();
-            return;
-        }
+    private synchronized void updateRemainingTimeBar(World world, int remainingTime) {
+        synchronized (remainingTimeBar) {
+            if (remainingTime < 0) {
+                remainingTimeBar.removeAll();
+                return;
+            }
 
-        int expire = getConfigVotingExpire();
-        Set<Player> worldPlayers = new HashSet<>(world.getPlayers());
-        Set<Player> barPlayers = new HashSet<>(remainingTimeBar.getPlayers());
-        barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(remainingTimeBar::removePlayer);
-        worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(remainingTimeBar::addPlayer);
-        int interval = getUnskippableNightInterval();
-        if (interval <= 0) {
-            remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire));
-        } else {
-            remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire, interval));
+            int expire = getConfigVotingExpire();
+            Set<Player> worldPlayers = new HashSet<>(world.getPlayers());
+            Set<Player> barPlayers = new HashSet<>(remainingTimeBar.getPlayers());
+            barPlayers.stream().filter(Predicate.not(worldPlayers::contains)).forEach(remainingTimeBar::removePlayer);
+            worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(remainingTimeBar::addPlayer);
+            int interval = getUnskippableNightInterval();
+            if (interval <= 0) {
+                remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire));
+            } else {
+                remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire, interval));
+            }
+            remainingTimeBar.setProgress(remainingTime / (double) expire);
         }
-        remainingTimeBar.setProgress(remainingTime / (double) expire);
+    }
+
+    public void onTimeIsSetToMorning() {
+        World world = getWorld();
+        if (world == null || remainingTime.get() >= 0 && !canSleep(world)) {
+            voteState.clear();
+            remainingTime.set(-1);
+            synchronized (remainingTimeBar) {
+                remainingTimeBar.removeAll();
+            }
+            nightSkipping.set(false);
+            previousNoSkip.set(-1);
+        }
     }
 
     private void skipNight() {

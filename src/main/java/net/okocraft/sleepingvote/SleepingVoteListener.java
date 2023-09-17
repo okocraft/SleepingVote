@@ -21,6 +21,7 @@ public class SleepingVoteListener implements Listener {
             for (World w : Bukkit.getWorlds()) {
                 SleepingVotes vote = SleepingVotes.getOrCreateSleepingVotes(w);
                 if (!vote.isVoteStarted()) {
+                    vote.onTimeIsSetToMorning();
                     continue;
                 }
 
