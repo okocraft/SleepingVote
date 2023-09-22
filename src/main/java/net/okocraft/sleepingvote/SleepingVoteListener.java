@@ -49,16 +49,18 @@ public class SleepingVoteListener implements Listener {
 
     @EventHandler
     private void onWorldChange(PlayerChangedWorldEvent event) {
-        SleepingVotes votes = SleepingVotes.getOrCreateSleepingVotes(event.getFrom());
-        if (votes.isVoteStarted()) {
-            votes.cancelVote(event.getPlayer());
-            event.getPlayer().sendMessage(MessageKeys.VOTE_CANCELLED);
-        }
+        Bukkit.getGlobalRegionScheduler().run(plugin, t -> {
+             SleepingVotes votes = SleepingVotes.getOrCreateSleepingVotes(event.getFrom());
+             if (votes.isVoteStarted()) {
+                 votes.cancelVote(event.getPlayer());
+                 event.getPlayer().sendMessage(MessageKeys.VOTE_CANCELLED);
+             }
 
-        votes = SleepingVotes.getOrCreateSleepingVotes(event.getPlayer().getWorld());
-        if (votes.isVoteStarted()) {
-            event.getPlayer().sendActionBar(MessageKeys.VOTE_TO_SKIP_NIGHT);
-        }
+             votes = SleepingVotes.getOrCreateSleepingVotes(event.getPlayer().getWorld());
+             if (votes.isVoteStarted()) {
+                 event.getPlayer().sendActionBar(MessageKeys.VOTE_TO_SKIP_NIGHT);
+             }
+        });
     }
 
     @EventHandler

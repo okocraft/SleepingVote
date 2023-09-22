@@ -222,7 +222,7 @@ public class SleepingVotes {
         return SkipState.VOTE_CONTINUES;
     }
 
-    private synchronized void updateRemainingTimeBar(World world, int remainingTime) {
+    private void updateRemainingTimeBar(World world, int remainingTime) {
         synchronized (remainingTimeBar) {
             if (remainingTime < 0) {
                 remainingTimeBar.removeAll();
