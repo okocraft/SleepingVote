@@ -29,7 +29,7 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
         }
 
         if (player.hasPermission("sleepingvote.admin")) {
-            if ("reload".startsWith(args[0].toLowerCase())) {
+            if (args.length > 0 && "reload".startsWith(args[0].toLowerCase())) {
                 if (plugin.reload()) {
                     player.sendMessage(MessageKeys.RELOADED);
                 }
