@@ -1,0 +1,17 @@
+[versions]
+
+# gradle plugins
+gradle-plugins = "1.8.4"
+
+# platform api
+paper = "26.1.2.build.69-stable"
+
+[libraries]
+
+# platform api
+paper = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+
+[plugins]
+
+bundler = { id = "dev.siroshun.gradle.plugins.bundler", version.ref = "gradle-plugins" }
+jcommon = { id = "dev.siroshun.gradle.plugins.jcommon", version.ref = "gradle-plugins" }
