@@ -1,6 +1,5 @@
 package net.okocraft.sleepingvote;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +30,8 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
 
         if (player.hasPermission("sleepingvote.admin")) {
             if ("reload".startsWith(args[0].toLowerCase())) {
-                try {
-                    plugin.getConfiguration().reload();
-                    plugin.getTranslationDirectory().load();
+                if (plugin.reload()) {
                     player.sendMessage(MessageKeys.RELOADED);
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
                 return true;
             }
@@ -77,7 +72,7 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
             vote.vote(player, true);
             world.getPlayers().forEach(p -> p.getScheduler().run(
                     plugin,
-                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player)),
+                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player.getName())),
                     null));
             return true;
         }
@@ -97,7 +92,7 @@ public class SleepingVoteCommand implements CommandExecutor, TabCompleter {
             vote.vote(player, false);
             world.getPlayers().forEach(p -> p.getScheduler().run(
                     plugin,
-                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player)),
+                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player.getName())),
                     null));
             return true;
         }

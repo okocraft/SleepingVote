@@ -1,5 +1,8 @@
 [versions]
 
+# common libraries
+mcmsgdef = "1.2.0"
+
 # gradle plugins
 gradle-plugins = "1.8.4"
 
@@ -7,6 +10,9 @@ gradle-plugins = "1.8.4"
 paper = "26.1.2.build.69-stable"
 
 [libraries]
+
+# common libraries
+mcmsgdef = { module = "dev.siroshun.mcmsgdef:mcmsgdef", version.ref = "mcmsgdef" }
 
 # platform api
 paper = { module = "io.papermc.paper:paper-api", version.ref = "paper" }

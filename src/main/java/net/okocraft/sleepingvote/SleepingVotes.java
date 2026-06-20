@@ -1,6 +1,5 @@
 package net.okocraft.sleepingvote;
 
-import com.github.siroshun09.configapi.api.Configuration;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
+import org.bukkit.configuration.Configuration;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.world.TimeSkipEvent;
@@ -34,7 +34,7 @@ public class SleepingVotes {
     private final AtomicLong previousNoSkip = new AtomicLong(-1);
 
     public static void onPluginEnabled(SleepingVotePlugin plugin) {
-        SleepingVotes.config = plugin.getConfiguration();
+        SleepingVotes.config = plugin.getConfig();
     }
 
     public static void onPluginDisabled() {
@@ -128,7 +128,7 @@ public class SleepingVotes {
     }
 
     private static int getConfigVotingExpire() {
-        return config.getInteger("voting-time", 50);
+        return config.getInt("voting-time", 50);
     }
 
     public boolean startVote() {
@@ -145,7 +145,7 @@ public class SleepingVotes {
         if (world == null) {
             return -1;
         }
-        int interval = config.getInteger("no-skip-night-interval", 3);
+        int interval = config.getInt("no-skip-night-interval", 3);
         if (interval <= -1) {
             return -1;
         }
@@ -236,9 +236,9 @@ public class SleepingVotes {
             worldPlayers.stream().filter(Predicate.not(barPlayers::contains)).forEach(remainingTimeBar::addPlayer);
             int interval = getUnskippableNightInterval();
             if (interval <= 0) {
-                remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire));
+                remainingTimeBar.setTitle(MessageKeys.SKIP_TIME_BAR_TITLE.apply(remainingTime, expire));
             } else {
-                remainingTimeBar.setTitle(MessageKeys.getSkipBarTitle(remainingTime, expire, interval));
+                remainingTimeBar.setTitle(MessageKeys.SKIP_TIME_BAR_TITLE_WITH_INTERVAL.apply(remainingTime, expire, interval));
             }
             remainingTimeBar.setProgress(remainingTime / (double) expire);
         }

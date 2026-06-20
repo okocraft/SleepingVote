@@ -83,14 +83,14 @@ public class SleepingVoteListener implements Listener {
             vote.vote(player, true);
             player.getWorld().getPlayers().forEach(p -> p.getScheduler().run(
                     plugin,
-                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player)),
+                    t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player.getName())),
                     null));
         } else if (vote.isVoteStarted()) {
             if (vote.getVoteState(player) == null) {
                 vote.vote(player, true);
                 player.getWorld().getPlayers().forEach(p -> p.getScheduler().run(
                         plugin,
-                        t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player)),
+                        t -> p.sendActionBar(MessageKeys.PLAYER_VOTED.apply(player.getName())),
                         null));
             } else {
                 event.setCancelled(true);
