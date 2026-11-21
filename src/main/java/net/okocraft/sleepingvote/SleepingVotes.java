@@ -1,5 +1,6 @@
 package net.okocraft.sleepingvote;
 
+import io.papermc.paper.world.WorldClock;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -288,8 +289,10 @@ public class SleepingVotes {
         });
 
         Bukkit.getGlobalRegionScheduler().runDelayed(plugin, t -> {
-            if (canSleep(world) && new TimeSkipEvent(
+            WorldClock clock = world.getDefaultClock();
+            if (clock != null && canSleep(world) && new TimeSkipEvent(
                     world,
+                    clock,
                     TimeSkipEvent.SkipReason.NIGHT_SKIP,
                     24000 - world.getTime()
             ).callEvent()) {
